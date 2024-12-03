@@ -7,19 +7,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-// these are the constants so luike the values for the pins, thresholds and the other stuff
+// ok so these are like the constants for the pins and all, 
+// they help define what pins are for what hardware, 
+// and some thresholds for heart rate
 #define PULSE_SENSOR_PIN A0
 #define HEARTBEAT_LED_PIN 13
 #define BLUETOOTH_RX_PIN 2
 #define BLUETOOTH_TX_PIN 3
 #define DEFAULT_SIGNAL_THRESHOLD 550
-#define DEFAULT_MAX_HEART_RATE 120
-#define DEFAULT_MIN_HEART_RATE 40
-#define NO_FINGER_SIGNAL_THRESHOLD 50
+#define DEFAULT_MAX_HEART_RATE 120   // if heart rate goes above this, it’s too high
+#define DEFAULT_MIN_HEART_RATE 40         // if heart rate is below this, it's too low
+#define NO_FINGER_SIGNAL_THRESHOLD 50         // basically when no finger is on the sensor
 #define BLUETOOTH_BUFFER_SIZE 64
 #define REPORT_INTERVAL_MS 60000  // this time is in miliseconds i did thi in otder to generate the sesion reports so like after the reading there will be a report that shows you BPM and other stuff
 
-// these are predefined macro for different log levels so what does this mean well it means that 
+// so yeah these macros are basically shortcuts to log messages in the code
+// like instead of writing the full logMessage function everytime, 
+// you can just use these and pass the message, and it'll tag the log 
+// with the right type (INFO, DEBUG, ERROR, etc.)
+// super useful to keep the code cleaner and easier to read
 #define LOG_INFO(msg) logMessage("INFO", msg)
 #define LOG_DEBUG(msg) logMessage("DEBUG", msg)
 #define LOG_ERROR(msg) logMessage("ERROR", msg)
@@ -27,7 +33,8 @@
 #define LOG_REPORT(msg) logMessage("REPORT", msg)
 #define LOG_WARNING(msg) logMessage("WARNING", msg)
 
-// this bascially tracks the sesion statiscits so like the total heartbeats, total BPM and the sesion of the start time
+// this struct is for tracking the heart rate session stats, like it stores
+// everything you need to summarize a session
 typedef struct {
     int totalHeartbeats;
     int totalBPM;
@@ -36,6 +43,7 @@ typedef struct {
 } HeartRateSession;
 
 
+// this sets up the Bluetooth module and pulse sensor
 SoftwareSerial Bluetooth(BLUETOOTH_RX_PIN, BLUETOOTH_TX_PIN);  //this is the bluetooth communicatio
 PulseSensorPlayground pulseSensor;
 volatile bool isFingerDetected = false;  
@@ -55,21 +63,24 @@ bool checkFingerPlacement(int signalAmplitude);
 // okay this one calculates the average beats per minute so after the sesion to display the average 
 inline float calculateAverageBPM() {
     return currentSession.bpmReadingsCount > 0
-               ? (float)currentSession.totalBPM / currentSession.bpmReadingsCount
-               : 0.0f;  
+               ? (float)currentSession.totalBPM / currentSession.bpmReadingsCount // normal calc
+               : 0.0f;   // if no readings, just return 0
 }
 
+// the setup function runs once when the system starts, so this is where
+// we set everything up, like the sensor, Bluetooth, and initialize stuff
 void setup() {
     initializeSystem();
     currentSession.sessionStartTime = millis();
     LOG_DEBUG("Setup completed successfully.");
 }
 
-// this si the main loop, so it checks if the finger is on the senosr and it loges the chnaegs, it also automagically reports every 60 seconds or when the finger is removed, and it also reads and processes the bluetooth commands
-void loop() {
+// this is the main loop, it keeps running forever
+// it does stuff like checking if there's a finger, logging data, and processing commandsvoid loop() {
     int signalAmplitude = pulseSensor.getLatestSample();
-    bool currentFingerDetected = checkFingerPlacement(signalAmplitude);
+    bool currentFingerDetected = checkFingerPlacement(signalAmplitude); // is there a finger?
 
+// checks if finger detection changed (added or removed)
     if (currentFingerDetected != isFingerDetected) {
         isFingerDetected = currentFingerDetected;
 
@@ -157,7 +168,7 @@ void updateHeartRate(int bpm) {
     LOG_DATA(buffer);
 }
 
-
+// this just bascially sends the recommendatiosn on the heart readigs so if it reaches max relax, average, or low and etc so this just does the recomendatiosn
 void sendRecommendation(float averageBPM) {
     if (averageBPM > DEFAULT_MAX_HEART_RATE) {
         LOG_INFO("Recommendation: Relax, practice deep breathing.");
@@ -168,6 +179,7 @@ void sendRecommendation(float averageBPM) {
     }
 }
 
+// checks if a finger is on the sensor
 bool checkFingerPlacement(int signalAmplitude) {
     return signalAmplitude > NO_FINGER_SIGNAL_THRESHOLD;
 }
@@ -177,7 +189,7 @@ void reportSessionStatistics() {
  
     float averageBPM = calculateAverageBPM();
 
-    if (currentSession.bpmReadingsCount > 0) { 
+    if (currentSession.bpmReadingsCount > 0) { // if there are valid readings
         char buffer[128];
         snprintf(buffer, sizeof(buffer), "Average BPM: %.2f, Total Heartbeats: %d",
                  averageBPM, currentSession.totalHeartbeats);
@@ -187,7 +199,7 @@ void reportSessionStatistics() {
         LOG_WARNING("No valid heart rate readings to report.");
     }
 
-
+// this just resets the data for the next session so everything gets reseted and you can put your finger on it and it will load a new sesion data
     currentSession.totalHeartbeats = 0;
     currentSession.totalBPM = 0;
     currentSession.bpmReadingsCount = 0;

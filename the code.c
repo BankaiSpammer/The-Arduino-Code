@@ -77,6 +77,7 @@ void setup() {
 
 // this is the main loop, it keeps running forever
 // it does stuff like checking if there's a finger, logging data, and processing commandsvoid loop() {
+  void loop() {
     int signalAmplitude = pulseSensor.getLatestSample();
     bool currentFingerDetected = checkFingerPlacement(signalAmplitude); // is there a finger?
 

@@ -45,4 +45,9 @@ the connectiosn#
 
 THE BREADBOARD:
 - i used the breadboard because its neater so its easier toroubleshoot and modify the circuit and it also helps to manage multiple connections which are required for the sensor and the bluetooth
+- what do the positive and negative rails do on the breadboard?
+- POSITIVE RAIL:
+- this rail distributes the power to all the componetns, and by connecting arduinos 5V to the positive rail the voltage is availabel throughout the breadboard
+- NEGATIVE RAIL:
+- this rail distributes the ground to all the components, so by connecting arduinos GND i make a common ground for all the components 
 

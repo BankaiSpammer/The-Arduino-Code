@@ -15,3 +15,12 @@ Some problems i encountered were:
 - also some problems that appeared were was that the code took a long time to upload 
 - the other problem was that when i connected the bluetooth module, and downloaded the terminal on the phone sometimes when i typed a message it would not appear in the computer or in the phone and that caused some problems which i had to fix and modify the code as well as the terminal on the phone
 - the biggest porbalme  that happneded was that something happened with arduino uno and when i uploaded the code it would not send it to the arduino and arduino could not make commands, this was a very annoying problem and required me to chnage the arduino board as there was something wrong with it internally 
+
+The materials that were used to create the project:
+= Arduino IDE
+= Pulse Sensor
+= Breadboard
+= Jumper Wires
+= USB cable
+= Arduino Uno
+= Bluetooth HC=05

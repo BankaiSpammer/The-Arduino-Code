@@ -25,3 +25,24 @@ The materials that were used to create the project:
 - Arduino Uno
 - Bluetooth HC=05
 
+
+HOW EVERYTHING WORKS and how it was connected and why:
+![image](https://github.com/user-attachments/assets/a431231e-3e63-4d1e-8978-ec5018fe4958)
+
+okay the circuit explanation the connections and why they were connected this way:
+
+THE PULSE SENSOR:
+- The red wire  from the pulse sensor connected to Arduinos 5V, this is connected this way because for power supply so basically voltage and this is needed because the sensor needs to detect the tiny changes in the blood flow
+- the black wire from the pulse sensor GND is connected to arduinos GND because for the  common ground reference and this is because that the current can flow properly and all the components can work together, THIS IS IMPORTANT BECAUSE WITHOUT THE GROUND THE SENSOR COULD NOT FUCNTION
+- the purple single from the pulse sensor is the wire output of the sensor and what this means? well it connects to A0 on the arduino analog input pins and these pins are needed here bevause the sensor outputs varying voltage and not on or off signlas like the digital sensors
+
+THE BLUETOOTH MODULE:
+the connectiosn#
+- GND --> Again the GND is the ground connection for the module, and the reason on why its connected to arduinos GND pin is to make sure that there is connection between the arduino and the bluetooth module
+- VCC --> This is the power supply, its connected to arduinos 5V because it provides a stable 5V power
+- TXD which is also transmit, so this basically transmits the data from the bluetooth to the arduino, and its connected to arduinos RX because this RX is configured to recieve data
+- RXD which is the recieve, so this recieves the data from the arduino, and its connected to arduinos TX via a voltage divider, and this voltage divider basically reduces the arduinos 5V ouput to 3.3V this matches the HC-05 modules operating voltage
+
+THE BREADBOARD:
+- i used the breadboard because its neater so its easier toroubleshoot and modify the circuit and it also helps to manage multiple connections which are required for the sensor and the bluetooth
+

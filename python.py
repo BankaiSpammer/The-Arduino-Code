@@ -1,3 +1,5 @@
+//this code is an exercise its not completely same but it set the ground//
+
 import numpy as np
 import cv2
 import sys

@@ -1,4 +1,3 @@
-// these are the libarries, so the pulseplayground it works with the pulse sensor, the softwareserial helps with the communication with the bluetootj module, and the others are just C language libraries
 #include <PulseSensorPlayground.h>
 #include <SoftwareSerial.h>
 #include <stdint.h>
@@ -6,6 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// these are the libraries, so the pulseplayground works with the pulse sensor,
+// the softwareserial helps with the communication with the Bluetooth module,
+// and the others are just C language libraries
 
 // ok so these are like the constants for the pins and all, 
 // they help define what pins are for what hardware, 
@@ -17,12 +20,12 @@
 #define DEFAULT_SIGNAL_THRESHOLD 550
 #define DEFAULT_MAX_HEART_RATE 120   // if heart rate goes above this, it’s too high
 #define DEFAULT_MIN_HEART_RATE 40         // if heart rate is below this, it's too low
-#define NO_FINGER_SIGNAL_THRESHOLD 50         // basically when no finger is on the sensor
+#define NO_FINGER_SIGNAL_THRESHOLD 50     // basically when no finger is on the sensor
 #define BLUETOOTH_BUFFER_SIZE 64
-#define REPORT_INTERVAL_MS 60000  // this time is in miliseconds i did thi in otder to generate the sesion reports so like after the reading there will be a report that shows you BPM and other stuff
+#define REPORT_INTERVAL_MS 60000  // this time is in milliseconds, used to generate session reports
 
 // so yeah these macros are basically shortcuts to log messages in the code
-// like instead of writing the full logMessage function everytime, 
+// like instead of writing the full logMessage function every time, 
 // you can just use these and pass the message, and it'll tag the log 
 // with the right type (INFO, DEBUG, ERROR, etc.)
 // super useful to keep the code cleaner and easier to read
@@ -30,8 +33,8 @@
 #define LOG_DEBUG(msg) logMessage("DEBUG", msg)
 #define LOG_ERROR(msg) logMessage("ERROR", msg)
 #define LOG_DATA(msg) logMessage("DATA", msg)
-#define LOG_REPORT(msg) logMessage("REPORT", msg)
 #define LOG_WARNING(msg) logMessage("WARNING", msg)
+#define LOG_REPORT(msg) logMessage("REPORT", msg)
 
 // this struct is for tracking the heart rate session stats, like it stores
 // everything you need to summarize a session
@@ -42,28 +45,27 @@ typedef struct {
     unsigned long sessionStartTime;
 } HeartRateSession;
 
-
 // this sets up the Bluetooth module and pulse sensor
-SoftwareSerial Bluetooth(BLUETOOTH_RX_PIN, BLUETOOTH_TX_PIN);  //this is the bluetooth communicatio
+SoftwareSerial Bluetooth(BLUETOOTH_RX_PIN, BLUETOOTH_TX_PIN);  // this is the Bluetooth communication
 PulseSensorPlayground pulseSensor;
 volatile bool isFingerDetected = false;  
-char bluetoothBuffer[BLUETOOTH_BUFFER_SIZE];
-int bluetoothBufferIndex = 0;   //this stores the incoming bluetooth commands
 HeartRateSession currentSession = {0, 0, 0, 0};
+char bluetoothBuffer[BLUETOOTH_BUFFER_SIZE];
+int bufferIndex = 0;   // this stores the incoming Bluetooth commands
 
-// this one below basically declares all the fucntoins that are being used in the code
+// this one below basically declares all the functions that are being used in the code
 void initializeSystem();
 void logMessage(const char *level, const char *message);
-void processBluetoothCommand(const char *command);
+void processBluetoothCommand(const char *cmd);
 void updateHeartRate(int bpm);
-void reportSessionStatistics();
-void sendRecommendation(float averageBPM);
-bool checkFingerPlacement(int signalAmplitude);
+void reportSessionStats();
+void sendHeartRateRecommendation(float avgBPM);
+bool isFingerOnSensor(int amplitude);
 
-// okay this one calculates the average beats per minute so after the sesion to display the average 
+// okay this one calculates the average beats per minute so after the session it displays the average 
 inline float calculateAverageBPM() {
     return currentSession.bpmReadingsCount > 0
-               ? (float)currentSession.totalBPM / currentSession.bpmReadingsCount // normal calc
+               ? (float)currentSession.totalBPM / currentSession.bpmReadingsCount  // normal calc
                : 0.0f;   // if no readings, just return 0
 }
 
@@ -72,28 +74,29 @@ inline float calculateAverageBPM() {
 void setup() {
     initializeSystem();
     currentSession.sessionStartTime = millis();
-    LOG_DEBUG("Setup completed successfully.");
+    LOG_INFO("Setup complete. Ready to track heart rate.");
 }
 
 // this is the main loop, it keeps running forever
-// it does stuff like checking if there's a finger, logging data, and processing commandsvoid loop() {
-  void loop() {
-    int signalAmplitude = pulseSensor.getLatestSample();
-    bool currentFingerDetected = checkFingerPlacement(signalAmplitude); // is there a finger?
+// it does stuff like checking if there's a finger, logging data, and processing commands
+void loop() {
+    int amplitude = pulseSensor.getLatestSample();
+    bool fingerDetectedNow = isFingerOnSensor(amplitude); // is there a finger?
 
-// checks if finger detection changed (added or removed)
-    if (currentFingerDetected != isFingerDetected) {
-        isFingerDetected = currentFingerDetected;
+    // checks if finger detection changed (added or removed)
+    if (fingerDetectedNow != isFingerDetected) {
+        isFingerDetected = fingerDetectedNow;
 
         if (isFingerDetected) {
-            LOG_INFO("Finger detected. Starting heart rate tracking.");
+            LOG_INFO("Finger detected! Tracking heart rate.");
             currentSession.sessionStartTime = millis();
         } else {
-            LOG_INFO("Finger removed. Reporting session statistics.");
-            reportSessionStatistics();
+            LOG_INFO("Finger removed. Generating session report.");
+            reportSessionStats();
         }
     }
 
+    // If finger is on sensor, process heart rate
     if (isFingerDetected) {
         int bpm = pulseSensor.getBeatsPerMinute();
 
@@ -101,108 +104,114 @@ void setup() {
             updateHeartRate(bpm);
         }
 
-        unsigned long currentTime = millis();
-        if (currentTime - currentSession.sessionStartTime >= REPORT_INTERVAL_MS) {
-            reportSessionStatistics();
+        // Generate periodic reports
+        if (millis() - currentSession.sessionStartTime >= REPORT_INTERVAL_MS) {
+            reportSessionStats();
         }
     }
 
+    // Process incoming Bluetooth commands
     while (Bluetooth.available()) {
-        char receivedChar = Bluetooth.read();
-        if (receivedChar == '\n' || bluetoothBufferIndex >= BLUETOOTH_BUFFER_SIZE - 1) {
-            bluetoothBuffer[bluetoothBufferIndex] = '\0';
+        char c = Bluetooth.read();
+        if (c == '\n' || bufferIndex >= BLUETOOTH_BUFFER_SIZE - 1) {
+            bluetoothBuffer[bufferIndex] = '\0';
             processBluetoothCommand(bluetoothBuffer);
-            bluetoothBufferIndex = 0;
+            bufferIndex = 0; // Reset buffer
         } else {
-            bluetoothBuffer[bluetoothBufferIndex++] = receivedChar;
+            bluetoothBuffer[bufferIndex++] = c;
         }
     }
 }
 
-// okay this initlialises the serial and the bluetooth interfcaes, so basically checks if the pulse sensor is working or not if its not then it logs an error
+// okay this initializes the serial and the Bluetooth interfaces, so it basically checks if the pulse sensor is working or not
+// if it's not then it logs an error
 void initializeSystem() {
     Serial.begin(9600);
     Bluetooth.begin(9600);
 
-    LOG_DEBUG("Setup started.");
+    LOG_DEBUG("Initializing system...");
 
     pulseSensor.analogInput(PULSE_SENSOR_PIN);
     pulseSensor.blinkOnPulse(HEARTBEAT_LED_PIN);
     pulseSensor.setThreshold(DEFAULT_SIGNAL_THRESHOLD);
 
     if (!pulseSensor.begin()) {
-        LOG_ERROR("Pulse Sensor initialization failed.");
-        exit(EXIT_FAILURE);
+        LOG_ERROR("Pulse sensor initialization failed. Halting.");
+        while (1); // Stop everything
     }
 
-    LOG_INFO("Pulse Sensor initialized successfully.");
+    LOG_INFO("Pulse sensor initialized successfully.");
 }
 
-// this si the message that logs to both the serial monitor and the bluetooth terminal on the phone
-void logMessage(const char *level, const char *message) {
+// this is the message that logs to both the serial monitor and the Bluetooth terminal on the phone
+void logMessage(const char *level, const char *msg) {
     char buffer[128];
-    snprintf(buffer, sizeof(buffer), "[%lu ms] [%s] %s", millis(), level, message);
+    snprintf(buffer, sizeof(buffer), "[%lu ms] [%s] %s", millis(), level, msg);
     Serial.println(buffer);
     Bluetooth.println(buffer);
 }
 
-//
-void processBluetoothCommand(const char *command) {
-    LOG_DEBUG("Processing Bluetooth command.");
-    if (strncmp(command, "SET_THRESHOLD:", 14) == 0) {
-        int threshold = atoi(command + 14);
-        pulseSensor.setThreshold(threshold);
-        LOG_INFO("Threshold updated.");
+// this handles incoming Bluetooth commands, like setting thresholds and showing help
+void processBluetoothCommand(const char *cmd) {
+    LOG_DEBUG("Processing Bluetooth command...");
+    if (strncmp(cmd, "SET_THRESHOLD:", 14) == 0) {
+        int newThreshold = atoi(cmd + 14);
+        if (newThreshold >= 100 && newThreshold <= 1000) {
+            pulseSensor.setThreshold(newThreshold);
+            LOG_INFO("Threshold updated.");
+        } else {
+            LOG_WARNING("Threshold out of range!");
+        }
+    } else if (strcmp(cmd, "HELP") == 0) {
+        LOG_INFO("Commands: SET_THRESHOLD:<value>, HELP");
     } else {
-        LOG_ERROR("Unknown command received.");
+        LOG_WARNING("Unknown command received.");
     }
 }
 
-
+// this updates the heart rate stats, so like every time it gets a reading, 
+// it increments the heartbeats and updates the BPM
 void updateHeartRate(int bpm) {
     currentSession.totalHeartbeats++;
-    currentSession.totalBPM += bpm;  
-    currentSession.bpmReadingsCount++;  
-
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "BPM: %d, Total Heartbeats: %d", bpm, currentSession.totalHeartbeats);
-    LOG_DATA(buffer);
+    currentSession.totalBPM += bpm;
+    currentSession.bpmReadingsCount++;
+    char logMsg[64];
+    snprintf(logMsg, sizeof(logMsg), "Heartbeat recorded: BPM = %d", bpm);
+    LOG_DATA(logMsg);
 }
 
-// this just bascially sends the recommendatiosn on the heart readigs so if it reaches max relax, average, or low and etc so this just does the recomendatiosn
-void sendRecommendation(float averageBPM) {
-    if (averageBPM > DEFAULT_MAX_HEART_RATE) {
-        LOG_INFO("Recommendation: Relax, practice deep breathing.");
-    } else if (averageBPM < DEFAULT_MIN_HEART_RATE) {
-        LOG_INFO("Recommendation: Light activity to increase heart rate.");
-    } else {
-        LOG_INFO("Heart rate is good. Maintain a healthy lifestyle.");
-    }
+// this just checks if a finger is on the sensor
+bool isFingerOnSensor(int amplitude) {
+    return amplitude > NO_FINGER_SIGNAL_THRESHOLD;
 }
 
-// checks if a finger is on the sensor
-bool checkFingerPlacement(int signalAmplitude) {
-    return signalAmplitude > NO_FINGER_SIGNAL_THRESHOLD;
-}
-
-
-void reportSessionStatistics() {
- 
-    float averageBPM = calculateAverageBPM();
+// this generates the session stats after the session ends and resets for the next session
+void reportSessionStats() {
+    float avgBPM = calculateAverageBPM();
 
     if (currentSession.bpmReadingsCount > 0) { // if there are valid readings
-        char buffer[128];
-        snprintf(buffer, sizeof(buffer), "Average BPM: %.2f, Total Heartbeats: %d",
-                 averageBPM, currentSession.totalHeartbeats);
-        LOG_REPORT(buffer);  
-        sendRecommendation(averageBPM);  
+        char stats[128];
+        snprintf(stats, sizeof(stats), "Session complete. Avg BPM: %.2f, Total Beats: %d",
+                 avgBPM, currentSession.totalHeartbeats);
+        LOG_REPORT(stats);
+        sendHeartRateRecommendation(avgBPM);
     } else {
-        LOG_WARNING("No valid heart rate readings to report.");
+        LOG_WARNING("No valid readings to report.");
     }
 
-// this just resets the data for the next session so everything gets reseted and you can put your finger on it and it will load a new sesion data
-    currentSession.totalHeartbeats = 0;
-    currentSession.totalBPM = 0;
-    currentSession.bpmReadingsCount = 0;
-    currentSession.sessionStartTime = millis();
+    // this resets the data for the next session
+    currentSession = (HeartRateSession){0, 0, 0, millis()};
 }
+
+// this just basically sends recommendations based on the heart readings,
+// so like if it reaches max relax, average, or low
+void sendHeartRateRecommendation(float avgBPM) {
+    if (avgBPM > DEFAULT_MAX_HEART_RATE) {
+        LOG_INFO("Relax and breathe deeply to lower your heart rate.");
+    } else if (avgBPM < DEFAULT_MIN_HEART_RATE) {
+        LOG_INFO("Try light exercise to raise your heart rate.");
+    } else {
+        LOG_INFO("Heart rate is within a healthy range. Keep it up!");
+    }
+}
+

@@ -17,10 +17,11 @@ Some problems i encountered were:
 - the biggest porbalme  that happneded was that something happened with arduino uno and when i uploaded the code it would not send it to the arduino and arduino could not make commands, this was a very annoying problem and required me to chnage the arduino board as there was something wrong with it internally 
 
 The materials that were used to create the project:
-= Arduino IDE
-= Pulse Sensor
-= Breadboard
-= Jumper Wires
-= USB cable
-= Arduino Uno
-= Bluetooth HC=05
+- Arduino IDE
+- Pulse Sensor
+- Breadboard
+- Jumper Wires
+- USB cable
+- Arduino Uno
+- Bluetooth HC=05
+
